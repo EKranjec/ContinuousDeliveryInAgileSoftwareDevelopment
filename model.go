@@ -2,12 +2,54 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 )
 
 type product struct {
 	ID    int     `json:"id"`
 	Name  string  `json:"name"`
 	Price float64 `json:"price"`
+}
+
+type order struct {
+	ID        int `json:"order_id"`
+	ProductID int `json:"product_id"`
+	Quantity  int `json:"qty"`
+}
+
+func getOrders(db *sql.DB, orderid int) ([]order, error) {
+	rows, err := db.Query("SELECT product_id, qty FROM orders WHERE order_id=$1", orderid)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	orders := []order{}
+
+	for rows.Next() {
+		var o order
+		if err := rows.Scan(&o.ProductID, &o.Quantity); err != nil {
+			fmt.Printf("Err: %s", err)
+			return nil, err
+		}
+		orders = append(orders, o)
+	}
+
+	return orders, nil
+}
+
+func (o *order) createOrder(db *sql.DB) error {
+	err := db.QueryRow(
+		"INSERT INTO orders(product_id, qty) VALUES($1, $2) RETURNING order_id",
+		o.ProductID, o.Quantity).Scan(&o.ID)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *product) getProduct(db *sql.DB) error {

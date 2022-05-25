@@ -56,7 +56,6 @@ func TestGetNonExistentProduct(t *testing.T) {
 }
 
 func TestCreateProduct(t *testing.T) {
-
 	clearTable()
 
 	var jsonStr = []byte(`{"name":"test product", "price": 11.22}`)
@@ -146,6 +145,37 @@ func TestDeleteProduct(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, response.Code)
 }
 
+func TestCreateOrder(t *testing.T) {
+	clearTable()
+	addProducts(4)
+
+	var jsonStr = []byte(`{"product_id":1, "qty": 4}`)
+	req, _ := http.NewRequest("POST", "/order", bytes.NewBuffer(jsonStr))
+	req.Header.Set("Content-Type", "application/json")
+
+	response := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, response.Code)
+
+	var m map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+}
+
+func TestGetOrder(t *testing.T) {
+	clearTable()
+	addProducts(4)
+
+	var jsonStr = []byte(`{"product_id":1, "qty": 4}`)
+	postReq, _ := http.NewRequest("POST", "/order", bytes.NewBuffer(jsonStr))
+	postReq.Header.Set("Content-Type", "application/json")
+
+	executeRequest(postReq)
+
+	req, _ := http.NewRequest("GET", "/orders/1", nil)
+	response := executeRequest(req)
+
+	checkResponseCode(t, http.StatusOK, response.Code)
+}
+
 func addProducts(count int) {
 	if count < 1 {
 		count = 1
@@ -170,20 +200,37 @@ func checkResponseCode(t *testing.T, expected, actual int) {
 }
 
 func ensureTableExists() {
-	if _, err := a.DB.Exec(tableCreationQuery); err != nil {
+	if _, err := a.DB.Exec(productsTableCreationQuery); err != nil {
+		log.Fatal(err)
+	}
+
+	if _, err := a.DB.Exec(ordersTableCreationQuery); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func clearTable() {
 	a.DB.Exec("DELETE FROM products")
+	a.DB.Exec("DELETE FROM orders")
 	a.DB.Exec("ALTER SEQUENCE products_id_seq RESTART WITH 1")
+	a.DB.Exec("ALTER SEQUENCE orders_order_id_seq RESTART WITH 1")
 }
 
-const tableCreationQuery = `CREATE TABLE IF NOT EXISTS products
+const productsTableCreationQuery = `CREATE TABLE IF NOT EXISTS products
 (
     id SERIAL,
     name TEXT NOT NULL,
     price NUMERIC(10,2) NOT NULL DEFAULT 0.00,
     CONSTRAINT products_pkey PRIMARY KEY (id)
+)`
+
+const ordersTableCreationQuery = `CREATE TABLE IF NOT EXISTS orders
+(
+    order_id SERIAL,
+	product_id INT,
+    qty INT,
+    CONSTRAINT orders_pkey PRIMARY KEY (order_id),
+	CONSTRAINT fk_product
+      FOREIGN KEY(product_id) 
+	  REFERENCES products(id)
 )`

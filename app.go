@@ -1,5 +1,3 @@
-// app.go
-
 package main
 
 import (
@@ -93,6 +91,41 @@ func (a *App) getProducts(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, products)
 }
 
+func (a *App) getOrders(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid product ID")
+		return
+	}
+
+	orders, err := getOrders(a.DB, id)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, orders)
+}
+
+func (a *App) createOrder(w http.ResponseWriter, r *http.Request) {
+	var o order
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&o); err != nil {
+		fmt.Printf("Error: %s\n", err)
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	defer r.Body.Close()
+
+	if err := o.createOrder(a.DB); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, o)
+}
+
 func (a *App) createProduct(w http.ResponseWriter, r *http.Request) {
 	var p product
 	decoder := json.NewDecoder(r.Body)
@@ -158,4 +191,7 @@ func (a *App) initializeRoutes() {
 	a.Router.HandleFunc("/product/{id:[0-9]+}", a.getProduct).Methods("GET")
 	a.Router.HandleFunc("/product/{id:[0-9]+}", a.updateProduct).Methods("PUT")
 	a.Router.HandleFunc("/product/{id:[0-9]+}", a.deleteProduct).Methods("DELETE")
+
+	a.Router.HandleFunc("/orders/{id:[0-9]+}", a.getOrders).Methods("GET")
+	a.Router.HandleFunc("/order", a.createOrder).Methods("POST")
 }
