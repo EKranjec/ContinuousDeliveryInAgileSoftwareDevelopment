@@ -10,6 +10,10 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    env:
+      APP_DB_USERNAME: ${{ secrets.POSTGRES_USER }}
+      APP_DB_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      APP_DB_NAME: ${{ secrets.POSTGRES_DB }}
     services:
       postgres:
         image: postgres:14.3
